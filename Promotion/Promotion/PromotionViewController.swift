@@ -8,10 +8,15 @@
 
 import UIKit
 
-class PromotionViewController: UIViewController, UITableViewDelegate, UITableViewDataSource, UISearchBarDelegate {
+class PromotionViewController: BaseViewController, UITableViewDelegate, UITableViewDataSource, UISearchBarDelegate {
     
     @IBOutlet weak var searchBar: UISearchBar!
     @IBOutlet weak var tableView: UITableView!
+    @IBOutlet weak var pageLabel: UILabel! {
+        didSet {
+            pageLabel.text = "\(suggestAlbum.count)"
+        }
+    }
     
     var timer = Timer?.self
     var dataString: String?
@@ -37,17 +42,38 @@ class PromotionViewController: UIViewController, UITableViewDelegate, UITableVie
     
     let url = "http://159.65.135.188:9670/promo/list/0/20"
     
+    var listAlbum = [AlbumModel]()
+    var suggestAlbum = [AlbumModel]()
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        tableView.rowHeight = 150
+        
+        setUpSearchBar()
+        
+        tableView.register(PromotionTableViewCell.nib(), forCellReuseIdentifier: PromotionTableViewCell.identifier())
         
     }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        setDataArrayFromAPI()
+//        setDataArrayFromAPI()
     }
+    
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(true)
+        
+        let link = "https://jsonplaceholder.typicode.com/photos"
+        showLoading()
+        BaseRouter.shared.getData(urlString: link, method: HTTPMethod.get, completion: { (data: [AlbumModel]) in
+            self.hideLoading()
+            self.listAlbum = data
+            self.suggestAlbum = data
+            self.pageLabel.text = "\(data.count)"
+            self.tableView.reloadData()
+        })
+    }
+    
+    
     
     func setDataArrayFromAPI() {
         PromotionDataService.shared.getData{ (data) in
@@ -55,7 +81,7 @@ class PromotionViewController: UIViewController, UITableViewDelegate, UITableVie
             self.dataString = "code = \(data.code ?? 0)"
             self.dataArrayFromAPI = data.data
             
-            self.setUpSearchBar()
+            
             self.alterLayout()
             
             self.filterData = self.dataArrayFromAPI
@@ -66,24 +92,51 @@ class PromotionViewController: UIViewController, UITableViewDelegate, UITableVie
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         //return dataArrayFromAPI.count
-        return filterData.count
+//        return filterData.count
+        return suggestAlbum.count
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        guard let cell = tableView.dequeueReusableCell(withIdentifier: "Cell", for: indexPath) as? PromotionTableViewCell else {
-            return UITableViewCell()
-        }
+        let cell = tableView.dequeueReusableCell(withIdentifier: PromotionTableViewCell.identifier(), for: indexPath) as! PromotionTableViewCell
+        
+        cell.data = suggestAlbum[indexPath.row]
+        
         
         cell.titleLabel.font = UIFont.boldSystemFont(ofSize: 20)
         
         
-        print("--------------")
+//        cell.titleLabel.text = "filterData[indexPath.row].keyString"
+//        cell.timeLabel.text = "filterData[indexPath.row].availableTo"
         
-        cell.titleLabel.text = filterData[indexPath.row].keyString
-        cell.timeLabel.text = filterData[indexPath.row].availableTo
+        cell.timeLabel.text = listAlbum[indexPath.row].thumbnailUrl
         
         //cell.timeLabel.text = getTimeOfDate()
         cell.timeLabel.textColor = UIColor.gray
+        
+        cell.fillData()
+        
+        if let link = listAlbum[indexPath.row].url {
+            cell.avatarImageView.dowloadFromServer(link: link)
+        }
+        
+//        if listImage.count > 0 {
+//            cell.avatarImageView.image = listImage[indexPath.row]
+//        }
+        
+        cell.closureLoadImage = { data in
+            
+//            DispatchQueue.global().sync {
+//                guard let url = URL(string: data) else {
+//                    return
+//                }
+//                if let imageData = try? Data(contentsOf: url) {
+//                    cell.avatarImageView.image = UIImage(data: imageData)
+////                    DispatchQueue.main.async {
+////                        cell.avatarImageView.image = UIImage(data: imageData)
+////                    }
+//                }
+//            }
+        }
         
         return cell
     }
@@ -114,18 +167,35 @@ class PromotionViewController: UIViewController, UITableViewDelegate, UITableVie
         searchBar.placeholder = "Search by Name"
     }
     
-    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
-        guard !searchText.isEmpty else {
-            filterData = dataArrayFromAPI
-            tableView.reloadData()
-            return
-            
+    func filterAlbum() {
+        if searchBar.text == "" {
+            suggestAlbum = listAlbum
+        } else {
+            suggestAlbum = listAlbum.filter { (data: AlbumModel) in
+                if let key = searchBar.text, let title = data.title {
+                    if title.lowercased().range(of: key.lowercased()) != nil {
+                        return true
+                    }
+                }
+                return false
+            }
         }
-        
-        filterData = dataArrayFromAPI.filter({ canabis -> Bool in
-            canabis.keyString!.lowercased().contains(searchText.lowercased())
-        })
         tableView.reloadData()
+    }
+    
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+//        guard !searchText.isEmpty else {
+//            filterData = dataArrayFromAPI
+//            tableView.reloadData()
+//            return
+//
+//        }
+//
+//        filterData = dataArrayFromAPI.filter({ canabis -> Bool in
+//            canabis.keyString!.lowercased().contains(searchText.lowercased())
+//        })
+        
+        filterAlbum()
     }
     
     func searchBar(_ searchBar: UISearchBar, selectedScopeButtonIndexDidChange selectedScope: Int) {
@@ -136,6 +206,11 @@ class PromotionViewController: UIViewController, UITableViewDelegate, UITableVie
             break
         }
         tableView.reloadData()
+    }
+    
+    //MARK: SearchBar Delegate
+    func searchBarCancelButtonClicked(_ searchBar: UISearchBar) {
+        searchBar.resignFirstResponder()
     }
 
 }

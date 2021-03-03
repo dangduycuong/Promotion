@@ -8,7 +8,9 @@
 
 import UIKit
 
-class PromotionTableViewCell: UITableViewCell {
+class PromotionTableViewCell: BaseTableViewCell {
+    
+    @IBOutlet weak var idLabel: UILabel!
     
     @IBOutlet weak var mainView: UIView!
     @IBOutlet weak var upView: UIView!
@@ -16,11 +18,17 @@ class PromotionTableViewCell: UITableViewCell {
     @IBOutlet weak var titleLabel: UILabel!
     @IBOutlet weak var timeLabel: UILabel!
     
+    @IBOutlet weak var avatarImageView: UIImageView!
+    
     @IBOutlet weak var topUpView: NSLayoutConstraint!
     
     @IBOutlet weak var bottomUnderView: NSLayoutConstraint!
     @IBOutlet weak var bottomDashView: NSLayoutConstraint!
     @IBOutlet weak var topDashView: NSLayoutConstraint!
+    
+    var data = AlbumModel()
+    
+    var closureLoadImage: ((String) -> ())?
     
     override func awakeFromNib() {
         super.awakeFromNib()
@@ -36,6 +44,17 @@ class PromotionTableViewCell: UITableViewCell {
         
     }
     
+    func fillData() {
+        titleLabel.text = data.title
+        if let id = data.id {
+            idLabel.text = "    \(id) day   "
+        }
+        
+        if let url = data.url {
+            closureLoadImage?(url)
+        }
+    }
+    
     func customLayoutView() {
         let radius = -(upView.bounds.height / 2)
         topUpView.constant = radius
@@ -44,6 +63,15 @@ class PromotionTableViewCell: UITableViewCell {
         bottomDashView.constant = -radius
     }
     
+    @IBAction func tapLoadImage(_ sender: Any) {
+        if let url = data.url {
+            closureLoadImage?(url)
+        }
+    }
+    
+    override func prepareForReuse() {
+        avatarImageView.image = UIImage()
+    }
 }
 
 extension UIView {
